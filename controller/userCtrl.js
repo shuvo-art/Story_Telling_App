@@ -1,206 +1,276 @@
 const User = require("../models/userModel");
 const { generateToken } = require("../config/jwtToken");
 const { generateRefreshToken } = require("../config/refreshToken");
+const { OAuth2Client } = require("google-auth-library");
 const asyncHandler = require("express-async-handler");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcrypt");
 const crypto = require("crypto");
+const sharp = require("sharp");
+const fs = require("fs-extra");
+const path = require("path");
 const { sendEmail } = require("../controller/emailCtrl");
 const validateMongodbId = require("../utils/validateMongodbId");
 
-// Create new user
 const createUser = asyncHandler(async (req, res) => {
-  const email = req.body.email;
-  const findUser = await User.findOne({ email });
-  if (!findUser) {
-    const newUser = await User.create(req.body);
-    res.json(newUser);
-  } else {
-    res.status(400).json({ message: "User already exists" });
+  let userData;
+  try {
+    userData = JSON.parse(req.body.userData);
+  } catch (error) {
+    return res.status(400).json({ message: "Invalid JSON data format" });
   }
+
+  const { email } = userData;
+
+  const existingUser = await User.findOne({ email });
+  if (existingUser) {
+    return res.status(400).json({ message: "User already exists" });
+  }
+
+  let profilePictureUrl = "";
+  if (req.resizedImagePath) {
+    profilePictureUrl = `${process.env.BASE_URL}/${req.resizedImagePath}`;
+  }
+
+  const newUser = await User.create({ ...userData, profilePicture: profilePictureUrl });
+  res.status(201).json(newUser);
 });
+
 
 // Login user
 const loginUserCtrl = asyncHandler(async (req, res) => {
   const { email, password } = req.body;
-  const findUser = await User.findOne({ email });
-  if (findUser && (await findUser.isPasswordMatched(password))) {
-    const refreshToken = await generateRefreshToken(findUser._id);
-    await User.findByIdAndUpdate(findUser.id, { refreshToken }, { new: true });
+  const user = await User.findOne({ email });
+
+  if (user && (await user.isPasswordMatched(password))) {
+    const refreshToken = generateRefreshToken(user._id);
+    await User.findByIdAndUpdate(user.id, { refreshToken }, { new: true });
     res.cookie("refreshToken", refreshToken, {
       httpOnly: true,
       maxAge: 72 * 60 * 60 * 1000,
     });
     res.json({
-      _id: findUser._id,
-      email: findUser.email,
-      firstname: findUser.firstname,
-      lastname: findUser.lastname,
-      token: generateToken(findUser._id),
+      _id: user._id,
+      email: user.email,
+      firstname: user.firstname,
+      lastname: user.lastname,
+      token: generateToken(user._id, user.role),
     });
   } else {
     res.status(400).json({ message: "Invalid credentials" });
   }
 });
 
-// Admin Login
-const loginAdmin = asyncHandler(async (req, res) => {
-  const { email, password } = req.body;
-  const findAdmin = await User.findOne({ email });
-  if (!findAdmin) {
-    return res.status(404).json({ message: "Admin not found" });
+/* // Update user profile
+const editUserProfile = asyncHandler(async (req, res) => {
+  const userId = req.user._id; // User ID from authenticated session
+  const { firstname, lastname, email, mobile, location, gender, dateOfBirth, password } = req.body;
+  const updateData = { firstname, lastname, email, mobile, location, gender, dateOfBirth };
+
+  // Update password if provided
+  if (password) {
+    const salt = await bcrypt.genSalt(10);
+    updateData.password = await bcrypt.hash(password, salt);
   }
-  if (findAdmin.role !== "admin") {
-    return res.status(403).json({ message: "Not authorized as Admin" });
+
+  // Handle profile picture if uploaded
+  if (req.resizedImagePath) {
+    updateData.profilePicture = `${process.env.BASE_URL}/${req.resizedImagePath}`;
   }
-  if (await findAdmin.isPasswordMatched(password)) {
-    const refreshToken = await generateRefreshToken(findAdmin._id);
-    await User.findByIdAndUpdate(findAdmin.id, { refreshToken }, { new: true });
-    res.cookie("refreshToken", refreshToken, {
-      httpOnly: true,
-      maxAge: 72 * 60 * 60 * 1000,
-    });
-    res.json({
-      _id: findAdmin._id,
-      email: findAdmin.email,
-      firstname: findAdmin.firstname,
-      lastname: findAdmin.lastname,
-      token: generateToken(findAdmin._id),
-    });
-  } else {
-    res.status(400).json({ message: "Invalid credentials" });
+
+  try {
+    // Update user profile with new data and profile picture URL
+    const updatedUser = await User.findByIdAndUpdate(userId, updateData, { new: true });
+    res.json({ message: "Profile updated successfully", user: updatedUser });
+  } catch (error) {
+    res.status(400).json({ message: "Error updating profile", error });
+  }
+}); */
+
+const editUserProfile = asyncHandler(async (req, res) => {
+  const userId = req.user._id; // User ID from authenticated session
+  let userData;
+  
+  try {
+    userData = JSON.parse(req.body.userData); // Parse `userData` JSON from request body
+  } catch (error) {
+    return res.status(400).json({ message: "Invalid JSON data format" });
+  }
+
+  const { password } = userData;
+  const updateData = { ...userData }; // Spread user data into updateData object
+
+  // Update password if provided
+  if (password) {
+    const salt = await bcrypt.genSalt(10);
+    updateData.password = await bcrypt.hash(password, salt);
+  }
+
+  // Handle profile picture if uploaded
+  if (req.resizedImagePath) {
+    updateData.profilePicture = `${process.env.BASE_URL}/${req.resizedImagePath}`;
+  }
+
+  try {
+    // Update user profile with new data and profile picture URL
+    const updatedUser = await User.findByIdAndUpdate(userId, updateData, { new: true });
+    res.json({ message: "Profile updated successfully", user: updatedUser });
+  } catch (error) {
+    res.status(400).json({ message: "Error updating profile", error });
   }
 });
 
-// Handle refresh token
-const handleRefreshToken = asyncHandler(async (req, res) => {
-  const { refreshToken } = req.cookies;
-  if (!refreshToken)
-    return res.status(403).json({ message: "No token provided" });
 
-  const user = await User.findOne({ refreshToken });
-  if (!user) return res.status(403).json({ message: "Token not valid" });
-
-  jwt.verify(refreshToken, process.env.JWT_SECRET, (err, decoded) => {
-    if (err || user.id !== decoded.id) {
-      return res.status(403).json({ message: "Token error" });
-    }
-    const accessToken = generateToken(user._id);
-    res.json({ accessToken });
-  });
-});
-
-// Logout user
-const logout = asyncHandler(async (req, res) => {
-  const { refreshToken } = req.cookies;
-  await User.findOneAndUpdate({ refreshToken }, { refreshToken: "" });
-  res.clearCookie("refreshToken", { httpOnly: true, secure: true });
-  res.sendStatus(204);
-});
-
-// Forgot password token generation
-const forgotPasswordToken = asyncHandler(async (req, res) => {
+// Forgot password - send verification code
+const forgotPassword = asyncHandler(async (req, res) => {
   const { email } = req.body;
   const user = await User.findOne({ email });
+  
   if (!user) return res.status(404).json({ message: "User not found" });
 
-  const token = crypto.randomBytes(32).toString("hex");
-  const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
-  user.passwordResetToken = hashedToken;
-  user.passwordResetExpires = Date.now() + 10 * 60 * 1000; // 10 mins
+  const verificationCode = Math.floor(1000 + Math.random() * 9000).toString();
+  user.passwordResetToken = crypto.createHash("sha256").update(verificationCode).digest("hex");
+  user.passwordResetExpires = Date.now() + 10 * 60 * 1000;
   await user.save();
 
-  const resetURL = `<a href='http://localhost:3000/reset-password/${token}'>Reset Password</a>`;
   const emailData = {
-    to: user.email,
-    subject: "Password Reset",
-    text: "You requested a password reset",
-    htm: resetURL,
+    to: email,
+    subject: "Password Reset Code",
+    text: `Your verification code is ${verificationCode}`,
   };
-
-  await sendEmail(emailData, req, res);
-  res.json({ message: "Password reset email sent" });
+  await sendEmail(emailData);
+  res.json({ message: "Verification code sent to email" });
 });
 
-// Reset password
+// Verify code and set new password
 const resetPassword = asyncHandler(async (req, res) => {
-  const { token } = req.params;
-  const { password } = req.body;
-  const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
+  const { email, code, password } = req.body;
+  const hashedCode = crypto.createHash("sha256").update(code).digest("hex");
 
   const user = await User.findOne({
-    passwordResetToken: hashedToken,
+    email,
+    passwordResetToken: hashedCode,
     passwordResetExpires: { $gt: Date.now() },
   });
-  if (!user)
-    return res.status(400).json({ message: "Invalid or expired token" });
 
-  user.password = await bcrypt.hash(password, 10);
+  if (!user) return res.status(400).json({ message: "Invalid or expired code" });
+
+  user.password = password; // This will trigger the `pre("save")` middleware to hash the password
   user.passwordResetToken = undefined;
   user.passwordResetExpires = undefined;
+
   await user.save();
 
   res.json({ message: "Password reset successfully" });
 });
 
-// Update user password
-const updatePassword = asyncHandler(async (req, res) => {
-  const { password } = req.body;
-  const { _id } = req.user;
-  const user = await User.findById(_id);
-  if (password) {
-    user.password = await bcrypt.hash(password, 10);
-    await user.save();
-    res.json({ message: "Password updated successfully" });
-  } else {
-    res.status(400).json({ message: "Password is required" });
+
+// Set preferred language
+const setPreferredLanguage = asyncHandler(async (req, res) => {
+  const { language } = req.body;
+  const user = await User.findByIdAndUpdate(req.user._id, { preferredLanguage: language }, { new: true });
+  res.json({ message: `Preferred language set to ${language}`, user });
+});
+
+// Initialize Google OAuth client
+const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+
+// Google Authentication
+const googleAuth = asyncHandler(async (req, res) => {
+  const { token } = req.body;
+
+  try {
+    const ticket = await client.verifyIdToken({
+      idToken: token,
+      audience: process.env.GOOGLE_CLIENT_ID,
+    });
+    const payload = ticket.getPayload();
+    const { email, name } = payload;
+
+    // Check if user exists or create a new user
+    let user = await User.findOne({ email });
+    if (!user) {
+      user = await User.create({
+        firstname: name?.split(" ")[0] || "GoogleUser",
+        lastname: name?.split(" ")[1] || "",
+        email,
+        password: "OAuthGoogleUser", // Default password for OAuth users
+        dateOfBirth: "2000-01-01",   // Default date of birth if none is provided
+        gender: "Not specified",     // Default gender if none is provided
+        mobile: "N/A"                // Default mobile if none is provided
+      });
+    }
+
+    // Generate JWT token
+    const jwtToken = generateToken(user._id, user.role);
+
+    // Send response
+    res.json({ message: "User authenticated successfully", token: jwtToken });
+  } catch (error) {
+    console.error("Error verifying Google token:", error);
+    res.status(400).json({ message: "Error authenticating with Google", error });
   }
 });
 
-// Get all users (Admin only)
-const getallUser = asyncHandler(async (req, res) => {
-  const users = await User.find();
-  res.json(users);
-});
-
-// Get a single user
-const getaUser = asyncHandler(async (req, res) => {
+// Get user by ID
+const getUserById = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  validateMongodbId(id);
-  const user = await User.findById(id);
-  if (!user) return res.status(404).json({ message: "User not found" });
-  res.json(user);
+
+  // Validate the ID format
+  if (!validateMongodbId(id)) {
+    return res.status(400).json({ message: "Invalid user ID format" });
+  }
+
+  try {
+    const user = await User.findById(id).select("-password -refreshToken -passwordResetToken -passwordResetExpires");
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    res.json(user);
+  } catch (error) {
+    res.status(500).json({ message: "Error retrieving user data", error });
+  }
 });
 
-// Update user profile
-const updatedUser = asyncHandler(async (req, res) => {
-  const { _id } = req.user;
-  validateMongodbId(_id);
-  const updatedUser = await User.findByIdAndUpdate(_id, req.body, {
-    new: true,
-  });
-  res.json(updatedUser);
+// Logout user
+const logoutUser = asyncHandler(async (req, res) => {
+  const userId = req.user._id;
+
+  // Remove refresh token from user in database
+  await User.findByIdAndUpdate(userId, { refreshToken: null });
+
+  // Clear refreshToken cookie
+  res.clearCookie("refreshToken", { httpOnly: true, secure: true });
+  res.status(200).json({ message: "Logout successful" });
 });
 
-// Delete a user (Admin only)
-const deleteaUser = asyncHandler(async (req, res) => {
-  const { id } = req.params;
-  validateMongodbId(id);
-  await User.findByIdAndDelete(id);
-  res.json({ message: "User deleted successfully" });
+
+// Delete user by ID
+const deleteUser = asyncHandler(async (req, res) => {
+  const userId = req.user._id;
+
+  try {
+    // Delete the user from the database
+    await User.findByIdAndDelete(userId);
+    res.status(200).json({ message: "User deleted successfully" });
+  } catch (error) {
+    res.status(500).json({ message: "Error deleting user", error });
+  }
 });
+
+
 
 module.exports = {
   createUser,
   loginUserCtrl,
-  loginAdmin,
-  getallUser,
-  getaUser,
-  deleteaUser,
-  updatedUser,
-  handleRefreshToken,
-  logout,
-  updatePassword,
-  forgotPasswordToken,
+  editUserProfile,
+  forgotPassword,
   resetPassword,
+  setPreferredLanguage,
+  googleAuth,
+  getUserById,
+  logoutUser,
+  deleteUser,
 };

@@ -1,37 +1,109 @@
 const express = require("express");
 const router = express.Router();
+const multer = require("multer");
+const path = require("path");
+const passport = require("passport");
+
 const {
+  googleAuth,
   createUser,
   loginUserCtrl,
-  loginAdmin,
-  getallUser,
-  getaUser,
-  deleteaUser,
-  updatedUser,
-  handleRefreshToken,
-  logout,
-  updatePassword,
-  forgotPasswordToken,
+  forgotPassword,
   resetPassword,
+  setPreferredLanguage,
+  editUserProfile,
+  getUserById,
+  logoutUser,
+  deleteUser,
 } = require("../controller/userCtrl");
+
+const {
+  adminLogin,
+  sendVerificationCode,
+  setNewPassword,
+  makeAdmin,
+  getAllAdmins,
+  deleteAdmin,
+} = require("../controller/adminCtrl");
+
 const { authMiddleware, isAdmin } = require("../middlewares/authMiddleware");
+const { profileUpload, profileImgResize } = require("../middlewares/uploadImages");
 
-// User Registration and Authentication
-router.post("/register", createUser); // User registration
-router.post("/login", loginUserCtrl); // User login
-router.post("/admin-login", loginAdmin); // Admin login
-router.post("/forgot-password-token", forgotPasswordToken); // Forgot password token
-router.put("/reset-password/:token", resetPassword); // Reset password
-router.put("/password", authMiddleware, updatePassword); // Update user password
+// Initialize Passport for OAuth
+require("../passportConfig");
 
-// User Profile and Management
-router.get("/all-users", authMiddleware, isAdmin, getallUser); // Get all users (Admin only)
-router.get("/profile/:id", authMiddleware, getaUser); // Get a single user's profile
-router.put("/edit-user", authMiddleware, updatedUser); // Edit user profile
-router.delete("/:id", authMiddleware, isAdmin, deleteaUser); // Delete a user (Admin only)
+// Set up multer storage for image uploads
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, "uploads/");
+  },
+  filename: (req, file, cb) => {
+    cb(null, Date.now() + path.extname(file.originalname));
+  },
+});
 
-// Token Handling and Logout
-router.get("/refresh", handleRefreshToken); // Refresh token handling
-router.get("/logout", logout); // Logout
+const upload = multer({ storage });
+
+/* // Google OAuth Routes
+router.get(
+  "/google",
+  passport.authenticate("google", { scope: ["profile", "email"] })
+);
+
+router.get(
+  "/google/callback",
+  passport.authenticate("google", { failureRedirect: "/login", session: false }),
+  (req, res) => {
+    const token = generateToken(req.user._id);
+    console.log(token);
+    res.redirect(`${process.env.CLIENT_URL}/auth/success?token=${token}`);
+  }
+); */
+
+// *** User Authentication and Profile Routes ***
+router.post("/register", profileUpload.single("profilePicture"), profileImgResize, createUser);
+router.post("/login", loginUserCtrl);
+router.post("/forgot-password", forgotPassword);
+router.post("/reset-password", resetPassword);
+
+router.put(
+  "/edit-profile",
+  authMiddleware,
+  profileUpload.single("profilePicture"),
+  profileImgResize,
+  editUserProfile
+);
+router.put("/set-preferred-language", authMiddleware, setPreferredLanguage);
+router.get("/profile/:id", authMiddleware, getUserById);
+router.post("/logout", authMiddleware, logoutUser);
+router.delete("/delete-user", authMiddleware, deleteUser);
+
+// *** Admin Authentication and Management Routes ***
+// Admin login and password reset routes (removed authMiddleware and isAdmin)
+router.post("/admin/login", adminLogin);
+router.post("/admin/forgot-password", sendVerificationCode);
+router.post("/admin/set-new-password", setNewPassword);
+
+// Admin management routes
+router.post("/make-admin", authMiddleware, isAdmin, makeAdmin); // Make an existing user or new user admin
+router.get("/get-all-admins", authMiddleware, isAdmin, getAllAdmins); // Retrieve all admins
+router.delete("/delete-admin/:id", authMiddleware, isAdmin, deleteAdmin); // Delete an admin by ID
+
+// *** OAuth Routes ***
+router.post("/google-auth", googleAuth);
+
+// Apple OAuth (optional example for future use)
+router.get(
+  "/apple",
+  passport.authenticate("apple", { scope: ["name", "email"] })
+);
+router.get(
+  "/apple/callback",
+  passport.authenticate("apple", { failureRedirect: "/login", session: false }),
+  (req, res) => {
+    const token = generateToken(req.user._id);
+    res.redirect(`${process.env.CLIENT_URL}/auth/success?token=${token}`);
+  }
+);
 
 module.exports = router;

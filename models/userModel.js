@@ -1,76 +1,63 @@
 const mongoose = require("mongoose");
 const bcrypt = require("bcrypt");
-const crypto = require("crypto");
 
-// Declare the Schema of the Mongo model
-var userSchema = new mongoose.Schema(
+const userSchema = new mongoose.Schema(
   {
-    firstname: {
-      type: String,
-      required: true,
-    },
-    lastname: {
-      type: String,
-      required: true,
-    },
-    email: {
-      type: String,
-      required: true,
-      unique: true,
-    },
-    mobile: {
-      type: String,
-      required: true,
-      unique: true,
-    },
-    password: {
-      type: String,
-      required: true,
-    },
-    role: {
-      type: String,
-      enum: ["user", "admin"],
-      default: "user",
-    },
-    isBlocked: {
-      type: Boolean,
-      default: false,
-    },
-    refreshToken: {
-      type: String,
-    },
+    profilePicture: { type: String, default: "" },
+    firstname: { type: String, required: true },
+    lastname: { type: String, required: true },
+    email: { type: String, required: true, unique: true },
+    mobile: { type: String, required: true, unique: true, default: "N/A" },
+    location: { type: String },
+    gender: { type: String, enum: ["Male", "Female", "Other", "Not specified"], required: true },
+    dateOfBirth: { type: Date, required: true, default: "2000-01-01" },
+    password: { type: String, required: true },
+    role: { type: String, enum: ["user", "admin"], default: "user" },
+    isBlocked: { type: Boolean, default: false },
+    refreshToken: String,
     passwordResetToken: String,
     passwordResetExpires: Date,
+    preferredLanguage: { type: String, default: "English" },
   },
-  {
-    timestamps: true,
-  }
+  { timestamps: true }
 );
 
-// Middleware for hashing passwords before saving
+// Middleware to hash passwords before saving
 userSchema.pre("save", async function (next) {
   if (!this.isModified("password")) {
-    next();
+    console.log("Password not modified, skipping hash.");
+    return next();
   }
-  const salt = await bcrypt.genSaltSync(10);
+
+  console.log("Hashing password...");
+  const salt = await bcrypt.genSalt(10);
   this.password = await bcrypt.hash(this.password, salt);
+  console.log("Hashed Password:", this.password);
+  next();
 });
 
-// Method to compare entered password with hashed password in the database
+
 userSchema.methods.isPasswordMatched = async function (enteredPassword) {
-  return await bcrypt.compare(enteredPassword, this.password);
+  try {
+    console.log("Password Comparison Inputs:", {
+      enteredPassword,
+      storedPassword: this.password,
+    });
+
+    const isMatch = await bcrypt.compare(enteredPassword, this.password);
+
+    console.log("Password Comparison Result:", {
+      enteredPassword,
+      storedPassword: this.password,
+      isMatch,
+    });
+
+    return isMatch;
+  } catch (error) {
+    console.error("Error comparing passwords:", error);
+    return false;
+  }
 };
 
-// Method to create password reset token
-userSchema.methods.createPasswordResetToken = async function () {
-  const resetToken = crypto.randomBytes(32).toString("hex");
-  this.passwordResetToken = crypto
-    .createHash("sha256")
-    .update(resetToken)
-    .digest("hex");
-  this.passwordResetExpires = Date.now() + 10 * 60 * 1000; // 10 minutes expiration
-  return resetToken;
-};
 
-//Export the model
 module.exports = mongoose.model("User", userSchema);
