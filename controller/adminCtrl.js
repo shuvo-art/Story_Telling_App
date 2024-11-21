@@ -69,7 +69,26 @@ const sendVerificationCode = asyncHandler(async (req, res) => {
   res.json({ message: "Verification code sent to email" });
 });
 
-// Verify code and set new password
+
+// Verify the code only
+const verifyCode = asyncHandler(async (req, res) => {
+  const { email, code } = req.body;
+
+  const admin = await User.findOne({ email, role: "admin" });
+  if (!admin) {
+    return res.status(404).json({ message: "Admin not found" });
+  }
+
+  const isCodeMatched = bcrypt.compareSync(code, admin.passwordResetToken);
+  if (!isCodeMatched || Date.now() > admin.passwordResetExpires) {
+    return res.status(400).json({ message: "Invalid or expired verification code" });
+  }
+
+  res.json({ message: "Code verified successfully" });
+});
+
+
+
 const setNewPassword = asyncHandler(async (req, res) => {
   const { email, code, newPassword } = req.body;
 
@@ -115,6 +134,7 @@ const setNewPassword = asyncHandler(async (req, res) => {
 
   res.json({ message: "Password updated successfully" });
 });
+
 
 
 // Make admin
@@ -193,6 +213,7 @@ const deleteAdmin = asyncHandler(async (req, res) => {
 module.exports = {
   adminLogin,
   sendVerificationCode,
+  verifyCode,
   setNewPassword,
   makeAdmin,
   getAllAdmins,

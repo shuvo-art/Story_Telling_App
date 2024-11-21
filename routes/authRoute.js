@@ -20,6 +20,7 @@ const {
 const {
   adminLogin,
   sendVerificationCode,
+  verifyCode,
   setNewPassword,
   makeAdmin,
   getAllAdmins,
@@ -82,6 +83,7 @@ router.delete("/delete-user", authMiddleware, deleteUser);
 // Admin login and password reset routes (removed authMiddleware and isAdmin)
 router.post("/admin/login", adminLogin);
 router.post("/admin/forgot-password", sendVerificationCode);
+router.post("/verify-code", verifyCode);
 router.post("/admin/set-new-password", setNewPassword);
 
 // Admin management routes

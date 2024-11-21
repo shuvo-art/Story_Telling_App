@@ -8,6 +8,7 @@ const subscriptionRouter = require("./routes/subscriptionRoute");
 const chatRouter = require("./routes/ChatRoute");
 const sectionRoutes = require("./routes/sectionRoutes");
 const questionRoutes = require("./routes/questionRoutes");
+const policyRoutes = require("./routes/policyRoutes");
 const { notFound, errorHandler } = require("./middlewares/errorHandler");
 const cookieParser = require("cookie-parser");
 const morgan = require("morgan");
@@ -32,6 +33,7 @@ app.use("/api/subscription", subscriptionRouter);
 app.use("/api/chat", chatRouter);
 app.use("/api/section", sectionRoutes);
 app.use("/api/question", questionRoutes);
+app.use("/api/policy", policyRoutes);
 
 app.use(notFound);
 app.use(errorHandler);
