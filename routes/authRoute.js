@@ -25,6 +25,8 @@ const {
   makeAdmin,
   getAllAdmins,
   deleteAdmin,
+  editAdminProfile,
+  changeAdminPassword,
 } = require("../controller/adminCtrl");
 
 const { authMiddleware, isAdmin } = require("../middlewares/authMiddleware");
@@ -90,6 +92,27 @@ router.post("/admin/set-new-password", setNewPassword);
 router.post("/make-admin", authMiddleware, isAdmin, makeAdmin); // Make an existing user or new user admin
 router.get("/get-all-admins", authMiddleware, isAdmin, getAllAdmins); // Retrieve all admins
 router.delete("/delete-admin/:id", authMiddleware, isAdmin, deleteAdmin); // Delete an admin by ID
+
+// Edit admin profile and change password
+router.put(
+  "/admin/edit-profile",
+  authMiddleware,
+  isAdmin,
+  profileUpload.single("profilePicture"), // Handles profile picture upload
+  profileImgResize, // Resizes the uploaded image
+  editAdminProfile
+);
+
+router.put(
+  "/admin/change-password",
+  authMiddleware,
+  isAdmin,
+  profileUpload.single("profilePicture"), // Handles profile picture upload
+  profileImgResize, // Resizes the uploaded image
+  changeAdminPassword
+);
+
+
 
 // *** OAuth Routes ***
 router.post("/google-auth", googleAuth);

@@ -32,6 +32,9 @@ const adminLogin = asyncHandler(async (req, res) => {
       _id: admin._id,
       email: admin.email,
       role: admin.role,
+      firstname: admin.firstname,
+      lastname: admin.lastname,
+      profilePicture: admin.profilePicture,
       token,
     });
   } else {
@@ -209,6 +212,80 @@ const deleteAdmin = asyncHandler(async (req, res) => {
   res.status(200).json({ message: "Admin deleted successfully." });
 });
 
+// Edit admin profile
+const editAdminProfile = asyncHandler(async (req, res) => {
+  const adminId = req.user._id; // Admin ID from authenticated session
+  let userData;
+
+  try {
+    // Parse `userData` from form-data
+    userData = JSON.parse(req.body.userData);
+  } catch (error) {
+    return res.status(400).json({ message: "Invalid JSON format in userData." });
+  }
+
+  const { firstname, lastname, email, mobile, location } = userData;
+  let updateData = { firstname, lastname, email, mobile, location };
+
+  // Handle profile picture if uploaded
+  if (req.resizedImagePath) {
+    updateData.profilePicture = `${process.env.BASE_URL}/${req.resizedImagePath}`;
+  }
+
+  try {
+    const updatedAdmin = await User.findByIdAndUpdate(adminId, updateData, { new: true }).select("-password");
+    res.json({ message: "Profile updated successfully", admin: updatedAdmin });
+  } catch (error) {
+    res.status(400).json({ message: "Error updating profile", error });
+  }
+});
+
+// Change admin password
+const changeAdminPassword = asyncHandler(async (req, res) => {
+  const adminId = req.user._id; // Admin ID from authenticated session
+  let passwordData;
+
+  try {
+    // Parse `userData` from form-data
+    passwordData = JSON.parse(req.body.userData);
+  } catch (error) {
+    return res.status(400).json({ message: "Invalid JSON format in userData." });
+  }
+
+  const { currentPassword, newPassword, confirmPassword } = passwordData;
+
+  if (newPassword !== confirmPassword) {
+    return res.status(400).json({ message: "New password and confirm password do not match" });
+  }
+
+  try {
+    const admin = await User.findById(adminId);
+    if (!admin) {
+      return res.status(404).json({ message: "Admin not found" });
+    }
+
+    const isPasswordMatched = await admin.isPasswordMatched(currentPassword);
+    if (!isPasswordMatched) {
+      return res.status(400).json({ message: "Current password is incorrect" });
+    }
+
+    // Update password directly (ensuring it's hashed only once via pre-save middleware)
+    admin.password = newPassword;
+
+    // Handle profile picture if uploaded
+    if (req.resizedImagePath) {
+      admin.profilePicture = `${process.env.BASE_URL}/${req.resizedImagePath}`;
+    }
+
+    await admin.save();
+
+    res.json({ message: "Password updated successfully" });
+  } catch (error) {
+    res.status(400).json({ message: "Error updating password", error });
+  }
+});
+
+
 
 module.exports = {
   adminLogin,
@@ -218,4 +295,6 @@ module.exports = {
   makeAdmin,
   getAllAdmins,
   deleteAdmin,
+  editAdminProfile,
+  changeAdminPassword,
 };
