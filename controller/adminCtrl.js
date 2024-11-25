@@ -105,9 +105,9 @@ const verifyCode = asyncHandler(async (req, res) => {
 
 
 const setNewPassword = asyncHandler(async (req, res) => {
-  const { email, code, newPassword } = req.body;
+  const { email, newPassword } = req.body;
 
-  console.log("Resetting Password for:", { email, code, newPassword });
+  console.log("Resetting Password for:", { email, newPassword });
 
   const admin = await User.findOne({ email, role: "admin" });
   if (!admin) {
@@ -116,14 +116,6 @@ const setNewPassword = asyncHandler(async (req, res) => {
   }
 
   console.log("Fetched Admin for Reset:", { email: admin.email, role: admin.role });
-
-  const isCodeMatched = bcrypt.compareSync(code, admin.passwordResetToken);
-  console.log("Verification Code Matched:", isCodeMatched);
-
-  if (!isCodeMatched || Date.now() > admin.passwordResetExpires) {
-    console.error("Invalid or expired verification code");
-    return res.status(400).json({ message: "Invalid or expired verification code" });
-  }
 
   // Check if the new password is already hashed
   const isHashed = /^\$2[aby]\$\d{2}\$/.test(newPassword);
@@ -135,7 +127,7 @@ const setNewPassword = asyncHandler(async (req, res) => {
     hashedPassword = newPassword;
   }
 
-  // Update password and clear reset tokens
+  // Update password
   await User.updateOne(
     { email, role: "admin" },
     {
