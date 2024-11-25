@@ -73,23 +73,35 @@ const sendVerificationCode = asyncHandler(async (req, res) => {
 });
 
 
-// Verify the code only
+// verify code only
 const verifyCode = asyncHandler(async (req, res) => {
   const { email, code } = req.body;
 
+  // Validate input
+  if (!email || !code) {
+    return res.status(400).json({ message: "Email and verification code are required" });
+  }
+
+  // Find admin user by email and role
   const admin = await User.findOne({ email, role: "admin" });
   if (!admin) {
     return res.status(404).json({ message: "Admin not found" });
   }
 
-  const isCodeMatched = bcrypt.compareSync(code, admin.passwordResetToken);
-  if (!isCodeMatched || Date.now() > admin.passwordResetExpires) {
-    return res.status(400).json({ message: "Invalid or expired verification code" });
+  // Check if the code has expired
+  if (Date.now() > admin.passwordResetExpires) {
+    return res.status(400).json({ message: "Verification code has expired" });
   }
 
+  // Compare the provided code with the hashed token
+  const isCodeMatched = await bcrypt.compare(code, admin.passwordResetToken);
+  if (!isCodeMatched) {
+    return res.status(400).json({ message: "Invalid verification code" });
+  }
+
+  // Success response
   res.json({ message: "Code verified successfully" });
 });
-
 
 
 const setNewPassword = asyncHandler(async (req, res) => {
