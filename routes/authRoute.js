@@ -15,6 +15,7 @@ const {
   getUserById,
   logoutUser,
   deleteUser,
+  getAllUsers,
 } = require("../controller/userCtrl");
 
 const {
@@ -92,6 +93,7 @@ router.post("/admin/set-new-password", setNewPassword);
 router.post("/make-admin", authMiddleware, isAdmin, makeAdmin); // Make an existing user or new user admin
 router.get("/get-all-admins", authMiddleware, isAdmin, getAllAdmins); // Retrieve all admins
 router.delete("/delete-admin/:id", authMiddleware, isAdmin, deleteAdmin); // Delete an admin by ID
+router.get("/all-users", authMiddleware, isAdmin, getAllUsers);  // Protected route for admins to fetch all users
 
 // Edit admin profile and change password
 router.put(

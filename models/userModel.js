@@ -18,6 +18,8 @@ const userSchema = new mongoose.Schema(
     passwordResetToken: String,
     passwordResetExpires: Date,
     preferredLanguage: { type: String, default: "English" },
+    subscriptionType: { type: String, enum: ["Free", "Premium"], default: "Free" },
+    income: { type: Number, default: 0 },
   },
   { timestamps: true }
 );

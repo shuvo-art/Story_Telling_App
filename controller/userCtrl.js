@@ -61,31 +61,7 @@ const loginUserCtrl = asyncHandler(async (req, res) => {
   }
 });
 
-/* // Update user profile
-const editUserProfile = asyncHandler(async (req, res) => {
-  const userId = req.user._id; // User ID from authenticated session
-  const { firstname, lastname, email, mobile, location, gender, dateOfBirth, password } = req.body;
-  const updateData = { firstname, lastname, email, mobile, location, gender, dateOfBirth };
 
-  // Update password if provided
-  if (password) {
-    const salt = await bcrypt.genSalt(10);
-    updateData.password = await bcrypt.hash(password, salt);
-  }
-
-  // Handle profile picture if uploaded
-  if (req.resizedImagePath) {
-    updateData.profilePicture = `${process.env.BASE_URL}/${req.resizedImagePath}`;
-  }
-
-  try {
-    // Update user profile with new data and profile picture URL
-    const updatedUser = await User.findByIdAndUpdate(userId, updateData, { new: true });
-    res.json({ message: "Profile updated successfully", user: updatedUser });
-  } catch (error) {
-    res.status(400).json({ message: "Error updating profile", error });
-  }
-}); */
 
 const editUserProfile = asyncHandler(async (req, res) => {
   const userId = req.user._id; // User ID from authenticated session
@@ -260,7 +236,21 @@ const deleteUser = asyncHandler(async (req, res) => {
   }
 });
 
+// Get all users
+const getAllUsers = asyncHandler(async (req, res) => {
+  try {
+    // Fetch all users from the database excluding sensitive fields (e.g., password)
+    const users = await User.find({}, "-password -refreshToken -passwordResetToken -passwordResetExpires");
 
+    if (!users || users.length === 0) {
+      return res.status(404).json({ message: "No users found" });
+    }
+
+    res.json({ users });
+  } catch (error) {
+    res.status(500).json({ message: "Error retrieving users", error });
+  }
+});
 
 module.exports = {
   createUser,
@@ -273,4 +263,5 @@ module.exports = {
   getUserById,
   logoutUser,
   deleteUser,
+  getAllUsers,
 };
