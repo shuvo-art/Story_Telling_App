@@ -110,55 +110,5 @@ router.put("/update-status/:id", authMiddleware, isAdmin, async (req, res) => {
   }
 });
 
-// Webhook handler
-router.post("/webhook", express.raw({ type: "application/json" }), async (req, res) => {
-  const webhookSecret = process.env.STRIPE_WEB_HOOK;
-  const sig = req.headers["stripe-signature"];
-
-  let event;
-
-  try {
-    event = stripe.webhooks.constructEvent(req.body, sig, webhookSecret);
-  } catch (err) {
-    return res.status(400).send(`Webhook Error: ${err.message}`);
-  }
-
-  if (event.type === "checkout.session.completed") {
-    const session = event.data.object;
-    const orderId = session.metadata.orderId;
-
-    //console.log("Session", session);
-    //console.log("Order ID:", orderId);
-
-    try {
-      const order = await Order.findById(orderId);
-      if (order) {
-        // Safely access the shipping address and shipping method
-        const shippingAmount = session.total_details?.amount_shipping || 0; // Default to 0 if undefined
-        const shippingMethod = shippingAmount === 0 ? "free" : "next-day";
-        const shippingAddress = session.shipping_details?.address || {};
-
-        await Order.findByIdAndUpdate(orderId, {
-          paymentId: session.id,
-          status: "confirmed",
-          shippingAddress, // Corrected path
-          shippingMethod, // Safely assigned method
-          email: session.customer_details?.email,
-          phone: session.customer_details?.phone,
-          name: session.customer_details?.name,
-        });
-
-        res.status(200).json({ received: true });
-      } else {
-        res.status(404).json({ message: "Order not found" });
-      }
-    } catch (error) {
-      console.error("Error updating order:", error);
-      res.status(500).json({ message: "Error updating order", error });
-    }
-  } else {
-    res.status(400).json({ message: "Event type not handled" });
-  }
-});
 
 module.exports = router;

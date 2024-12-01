@@ -6,7 +6,6 @@ const { authMiddleware, isAdmin } = require("../middlewares/authMiddleware");
 const { createSubscription } = require("../controller/subscriptionController");
 
 
-
 // Create a new subscription
 router.post("/create", authMiddleware, isAdmin, async (req, res) => {
   const { title, description, price, discount, benefits, startDate, endDate } = req.body;
@@ -81,9 +80,6 @@ router.get("/list", async (req, res) => {
 
 // POST: Create Subscription (Upgrade)
 router.post("/create-subscription", authMiddleware, createSubscription);
-
-// POST: Stripe Webhook (handle payment success)
-//router.post("/webhook", express.raw({ type: "application/json" }), handleStripeWebhook);
 
 
 module.exports = router;

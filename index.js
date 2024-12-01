@@ -3,6 +3,8 @@ const app = express();
 const dotenv = require("dotenv").config();
 const PORT = process.env.PORT || 5000;
 const dbConnect = require("./config/dbConnect");
+const bodyParser = require('body-parser');
+const { handleStripeWebhook } = require('./controller/webhookController');
 const authRouter = require("./routes/authRoute");
 const subscriptionRouter = require("./routes/subscriptionRoute");
 const couponRouter = require("./routes/couponRoute");
@@ -12,9 +14,6 @@ const questionRoutes = require("./routes/questionRoutes");
 const policyRoutes = require("./routes/policyRoutes");
 const orderRouter = require("./routes/orderRoute");
 const { notFound, errorHandler } = require("./middlewares/errorHandler");
-
-const bodyParser = require('body-parser');
-const { handleStripeWebhook } = require('./controller/webhookController');
 
 const cookieParser = require("cookie-parser");
 const morgan = require("morgan");
@@ -34,14 +33,11 @@ app.use(cookieParser());
 // Serve static files for uploaded images
 app.use("/uploads", express.static(path.join(__dirname, "public/images/profiles")));
 
-// Raw body parser for Stripe webhook signature verification
+// Use raw body parsing for Stripe webhooks
 app.post('/api/subscription/webhook', bodyParser.raw({ type: 'application/json' }), handleStripeWebhook);
 
-// Order-specific webhook route (raw body)
-app.use("/api/order/webhook", express.raw({ type: "application/json" }));
-//app.use("/api/subscription/webhook", express.raw({ type: "application/json" }));
-  // For general routes
-app.use(express.json());
+app.use(express.json()); // Apply express.json() globally to other routes
+
 // Route middlewares
 app.use("/api/user", authRouter);
 app.use("/api/subscription", subscriptionRouter);
