@@ -7,6 +7,7 @@ const bodyParser = require('body-parser');
 const { handleStripeWebhook } = require('./controller/webhookController');
 const authRouter = require("./routes/authRoute");
 const subscriptionRouter = require("./routes/subscriptionRoute");
+const reportRouter = require("./routes/reportRoute");
 const couponRouter = require("./routes/couponRoute");
 const chatRouter = require("./routes/ChatRoute");
 const sectionRoutes = require("./routes/sectionRoutes");
@@ -41,6 +42,7 @@ app.use(express.json()); // Apply express.json() globally to other routes
 // Route middlewares
 app.use("/api/user", authRouter);
 app.use("/api/subscription", subscriptionRouter);
+app.use("/api/report", reportRouter);
 app.use("/api/coupon", couponRouter);
 app.use("/api/chat", chatRouter);
 app.use("/api/section", sectionRoutes);
