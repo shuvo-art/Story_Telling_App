@@ -118,6 +118,37 @@ const forgotPassword = asyncHandler(async (req, res) => {
   res.json({ message: "Verification code sent to email" });
 });
 
+
+// Verify code for normal users
+const verifyCodeUser = asyncHandler(async (req, res) => {
+  const { email, code } = req.body;
+
+  // Validate input
+  if (!email || !code) {
+    return res.status(400).json({ message: "Email and verification code are required" });
+  }
+
+  // Find the user by email
+  const user = await User.findOne({ email });
+  if (!user) {
+    return res.status(404).json({ message: "User not found" });
+  }
+
+  // Check if the code has expired
+  if (Date.now() > user.passwordResetExpires) {
+    return res.status(400).json({ message: "Verification code has expired" });
+  }
+
+  // Compare the provided code with the hashed token
+  const hashedCode = crypto.createHash("sha256").update(code).digest("hex");
+  if (hashedCode !== user.passwordResetToken) {
+    return res.status(400).json({ message: "Invalid verification code" });
+  }
+
+  // Success response
+  res.json({ message: "Code verified successfully" });
+});
+
 // Verify code and set new password
 const resetPassword = asyncHandler(async (req, res) => {
   const { email, code, password } = req.body;
@@ -257,6 +288,7 @@ module.exports = {
   loginUserCtrl,
   editUserProfile,
   forgotPassword,
+  verifyCodeUser,
   resetPassword,
   setPreferredLanguage,
   googleAuth,

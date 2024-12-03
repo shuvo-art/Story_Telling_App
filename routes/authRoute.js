@@ -9,6 +9,7 @@ const {
   createUser,
   loginUserCtrl,
   forgotPassword,
+  verifyCodeUser,
   resetPassword,
   setPreferredLanguage,
   editUserProfile,
@@ -28,6 +29,8 @@ const {
   deleteAdmin,
   editAdminProfile,
   changeAdminPassword,
+  getAdminNotifications,
+  markNotificationAsRead,
 } = require("../controller/adminCtrl");
 
 const { authMiddleware, isAdmin } = require("../middlewares/authMiddleware");
@@ -68,6 +71,7 @@ router.get(
 router.post("/register", profileUpload.single("profilePicture"), profileImgResize, createUser);
 router.post("/login", loginUserCtrl);
 router.post("/forgot-password", forgotPassword);
+router.post("/verify-code-user", verifyCodeUser);
 router.post("/reset-password", resetPassword);
 
 router.put(
@@ -114,6 +118,12 @@ router.put(
   changeAdminPassword
 );
 
+
+// Get all notifications for admin
+router.get("/notifications", authMiddleware, isAdmin, getAdminNotifications);
+
+// Mark a notification as read
+router.put("/notifications/:id", authMiddleware, isAdmin, markNotificationAsRead);
 
 
 // *** OAuth Routes ***

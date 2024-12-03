@@ -1,13 +1,14 @@
 const express = require("express");
 const router = express.Router();
 const Order = require("../models/order");
+const Notification = require("../models/notificationModel"); 
 const { authMiddleware, isAdmin } = require("../middlewares/authMiddleware");
 const Stripe = require("stripe");
 const stripe = new Stripe(process.env.STRIPE_KEY);
 
 // Create Order and Process Payment
 router.post("/create-order", authMiddleware, async (req, res) => {
-  const { bookTitle, quantity, price } = req.body; 
+  const { bookTitle, quantity, price } = req.body;
   const total = quantity * price;
 
   try {
@@ -18,9 +19,21 @@ router.post("/create-order", authMiddleware, async (req, res) => {
       quantity,
       price,
       total,
-      status: "pending", 
+      status: "pending",
     });
     await order.save();
+
+    // Create a notification for the admin about the new order
+    const adminNotification = new Notification({
+      message: `${req.user.firstname} ${req.user.lastname} ordered ${bookTitle} (${quantity} copies)`,
+      userId: req.user._id,
+      orderId: order._id,
+    });
+
+    // Save the notification
+    await adminNotification.save();
+
+    // You can add code here to notify admins through email, websockets, etc.
 
     // Create a Stripe session for the payment
     const session = await stripe.checkout.sessions.create({

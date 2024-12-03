@@ -1,4 +1,5 @@
 const User = require("../models/userModel");
+const Notification = require("../models/notificationModel");
 const asyncHandler = require("express-async-handler");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
@@ -290,6 +291,35 @@ const changeAdminPassword = asyncHandler(async (req, res) => {
 });
 
 
+// Get all notifications for admin
+const getAdminNotifications = async (req, res) => {
+  try {
+    const notifications = await Notification.find({}).populate("userId", "firstname lastname email").populate("orderId", "bookTitle total status").sort({ createdAt: -1 });
+
+    res.json({ notifications });
+  } catch (error) {
+    console.error("Error fetching notifications:", error);
+    res.status(500).json({ message: "Error fetching notifications", error });
+  }
+};
+
+// Mark a notification as read
+const markNotificationAsRead = async (req, res) => {
+  const { id } = req.params;
+  try {
+    const notification = await Notification.findByIdAndUpdate(id, { status: "read" }, { new: true });
+
+    if (!notification) {
+      return res.status(404).json({ message: "Notification not found" });
+    }
+
+    res.json({ message: "Notification marked as read", notification });
+  } catch (error) {
+    res.status(500).json({ message: "Error updating notification", error });
+  }
+};
+
+
 
 module.exports = {
   adminLogin,
@@ -301,4 +331,6 @@ module.exports = {
   deleteAdmin,
   editAdminProfile,
   changeAdminPassword,
+  getAdminNotifications,
+  markNotificationAsRead,
 };
