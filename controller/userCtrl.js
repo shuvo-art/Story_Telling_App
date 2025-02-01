@@ -14,26 +14,41 @@ const validateMongodbId = require("../utils/validateMongodbId");
 
 const createUser = asyncHandler(async (req, res) => {
   let userData;
+
   try {
+    // Debug the incoming request body
+    console.log("Request Body:", req.body);
+
+    // Parse JSON `userData` field
     userData = JSON.parse(req.body.userData);
   } catch (error) {
-    return res.status(400).json({ message: "Invalid JSON data format" });
+    console.error("JSON Parsing Error:", error);
+    return res.status(400).json({ message: 'Invalid JSON data format' });
   }
 
   const { email } = userData;
 
+  // Check if the user already exists
   const existingUser = await User.findOne({ email });
   if (existingUser) {
-    return res.status(400).json({ message: "User already exists" });
+    return res.status(400).json({ message: 'User already exists' });
   }
 
-  let profilePictureUrl = "";
-  if (req.resizedImagePath) {
-    profilePictureUrl = `${process.env.BASE_URL}/${req.resizedImagePath}`;
+  let profilePictureUrl = '';
+  if (req.file) {
+    profilePictureUrl = req.file.path; // Cloudinary secure_url from multer
   }
 
-  const newUser = await User.create({ ...userData, profilePicture: profilePictureUrl });
-  res.status(201).json(newUser);
+  try {
+    const newUser = await User.create({
+      ...userData,
+      profilePicture: profilePictureUrl,
+    });
+    res.status(201).json(newUser);
+  } catch (error) {
+    console.error("Error Creating User:", error);
+    res.status(500).json({ message: 'Server Error', error });
+  }
 });
 
 
@@ -66,15 +81,15 @@ const loginUserCtrl = asyncHandler(async (req, res) => {
 const editUserProfile = asyncHandler(async (req, res) => {
   const userId = req.user._id; // User ID from authenticated session
   let userData;
-  
+
   try {
-    userData = JSON.parse(req.body.userData); // Parse `userData` JSON from request body
+    userData = JSON.parse(req.body.userData);
   } catch (error) {
-    return res.status(400).json({ message: "Invalid JSON data format" });
+    return res.status(400).json({ message: 'Invalid JSON data format' });
   }
 
   const { password } = userData;
-  const updateData = { ...userData }; // Spread user data into updateData object
+  const updateData = { ...userData };
 
   // Update password if provided
   if (password) {
@@ -82,17 +97,16 @@ const editUserProfile = asyncHandler(async (req, res) => {
     updateData.password = await bcrypt.hash(password, salt);
   }
 
-  // Handle profile picture if uploaded
-  if (req.resizedImagePath) {
-    updateData.profilePicture = `${process.env.BASE_URL}/${req.resizedImagePath}`;
+  // Upload new profile picture to Cloudinary
+  if (req.file) {
+    updateData.profilePicture = req.file.path; // Cloudinary secure_url
   }
 
   try {
-    // Update user profile with new data and profile picture URL
     const updatedUser = await User.findByIdAndUpdate(userId, updateData, { new: true });
-    res.json({ message: "Profile updated successfully", user: updatedUser });
+    res.json({ message: 'Profile updated successfully', user: updatedUser });
   } catch (error) {
-    res.status(400).json({ message: "Error updating profile", error });
+    res.status(400).json({ message: 'Error updating profile', error });
   }
 });
 

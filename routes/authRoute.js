@@ -34,7 +34,9 @@ const {
 } = require("../controller/adminCtrl");
 
 const { authMiddleware, isAdmin } = require("../middlewares/authMiddleware");
-const { profileUpload, profileImgResize } = require("../middlewares/uploadImages");
+/* const { profileUpload, profileImgResize } = require("../middlewares/uploadImages"); */
+const { profileUpload } = require('../middlewares/uploadImages');
+
 
 // Initialize Passport for OAuth
 require("../passportConfig");
@@ -68,19 +70,25 @@ router.get(
 ); */
 
 // *** User Authentication and Profile Routes ***
-router.post("/register", profileUpload.single("profilePicture"), profileImgResize, createUser);
+//router.post("/register", profileUpload.single("profilePicture"), profileImgResize, createUser);
+router.post('/register', profileUpload.single('profilePicture'), (req, res, next) => {
+  console.log("Request received:", req.body);
+  console.log("File uploaded:", req.file);
+  next();
+}, createUser);
 router.post("/login", loginUserCtrl);
 router.post("/forgot-password", forgotPassword);
 router.post("/verify-code-user", verifyCodeUser);
 router.post("/reset-password", resetPassword);
 
-router.put(
+/* router.put(
   "/edit-profile",
   authMiddleware,
   profileUpload.single("profilePicture"),
   profileImgResize,
   editUserProfile
-);
+); */
+router.put('/edit-profile', authMiddleware, profileUpload.single('profilePicture'), editUserProfile);
 router.put("/set-preferred-language", authMiddleware, setPreferredLanguage);
 router.get("/profile/:id", authMiddleware, getUserById);
 router.post("/logout", authMiddleware, logoutUser);
@@ -100,7 +108,7 @@ router.delete("/delete-admin/:id", authMiddleware, isAdmin, deleteAdmin); // Del
 router.get("/all-users", authMiddleware, isAdmin, getAllUsers);  // Protected route for admins to fetch all users
 
 // Edit admin profile and change password
-router.put(
+/* router.put(
   "/admin/edit-profile",
   authMiddleware,
   isAdmin,
@@ -116,8 +124,23 @@ router.put(
   profileUpload.single("profilePicture"), // Handles profile picture upload
   profileImgResize, // Resizes the uploaded image
   changeAdminPassword
+); */
+
+router.put(
+  "/admin/edit-profile",
+  authMiddleware,
+  isAdmin,
+  profileUpload.single("profilePicture"), // Handles profile picture upload
+  editAdminProfile
 );
 
+router.put(
+  "/admin/change-password",
+  authMiddleware,
+  isAdmin,
+  profileUpload.single("profilePicture"), // Handles profile picture upload
+  changeAdminPassword
+);
 
 // Get all notifications for admin
 router.get("/notifications", authMiddleware, isAdmin, getAdminNotifications);

@@ -217,7 +217,6 @@ const deleteAdmin = asyncHandler(async (req, res) => {
   res.status(200).json({ message: "Admin deleted successfully." });
 });
 
-// Edit admin profile
 const editAdminProfile = asyncHandler(async (req, res) => {
   const adminId = req.user._id; // Admin ID from authenticated session
   let userData;
@@ -232,9 +231,9 @@ const editAdminProfile = asyncHandler(async (req, res) => {
   const { firstname, lastname, email, mobile, location } = userData;
   let updateData = { firstname, lastname, email, mobile, location };
 
-  // Handle profile picture if uploaded
-  if (req.resizedImagePath) {
-    updateData.profilePicture = `${process.env.BASE_URL}/${req.resizedImagePath}`;
+  // Upload profile picture to Cloudinary if provided
+  if (req.file) {
+    updateData.profilePicture = req.file.path; // Cloudinary secure_url from multer-storage-cloudinary
   }
 
   try {
@@ -245,7 +244,6 @@ const editAdminProfile = asyncHandler(async (req, res) => {
   }
 });
 
-// Change admin password
 const changeAdminPassword = asyncHandler(async (req, res) => {
   const adminId = req.user._id; // Admin ID from authenticated session
   let passwordData;
@@ -277,9 +275,9 @@ const changeAdminPassword = asyncHandler(async (req, res) => {
     // Update password directly (ensuring it's hashed only once via pre-save middleware)
     admin.password = newPassword;
 
-    // Handle profile picture if uploaded
-    if (req.resizedImagePath) {
-      admin.profilePicture = `${process.env.BASE_URL}/${req.resizedImagePath}`;
+    // Upload new profile picture to Cloudinary if provided
+    if (req.file) {
+      admin.profilePicture = req.file.path; // Cloudinary secure_url from multer-storage-cloudinary
     }
 
     await admin.save();
@@ -289,7 +287,6 @@ const changeAdminPassword = asyncHandler(async (req, res) => {
     res.status(400).json({ message: "Error updating password", error });
   }
 });
-
 
 // Get all notifications for admin
 const getAdminNotifications = async (req, res) => {
