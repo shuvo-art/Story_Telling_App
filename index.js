@@ -50,6 +50,12 @@ app.use("/api/question", questionRoutes);
 app.use("/api/policy", policyRoutes);
 app.use("/api/order", orderRouter);
 
+
+// Routes
+app.get('/', (req, res) => {
+  res.send('Welcome to the Story Telling App!');
+});
+
 // Error Handling
 app.use(notFound);
 app.use(errorHandler);
