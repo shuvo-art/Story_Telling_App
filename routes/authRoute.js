@@ -90,7 +90,7 @@ router.post("/reset-password", resetPassword);
 ); */
 router.put('/edit-profile', authMiddleware, profileUpload.single('profilePicture'), editUserProfile);
 router.put("/set-preferred-language", authMiddleware, setPreferredLanguage);
-router.get("/profile/:id", authMiddleware, getUserById);
+router.get("/profile", authMiddleware, getUserById);
 router.post("/logout", authMiddleware, logoutUser);
 router.delete("/delete-user", authMiddleware, deleteUser);
 

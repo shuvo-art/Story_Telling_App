@@ -233,17 +233,13 @@ const googleAuth = asyncHandler(async (req, res) => {
   }
 });
 
-// Get user by ID
+// Get user by token (no need to provide ID in the URL)
 const getUserById = asyncHandler(async (req, res) => {
-  const { id } = req.params;
-
-  // Validate the ID format
-  if (!validateMongodbId(id)) {
-    return res.status(400).json({ message: "Invalid user ID format" });
-  }
+  const userId = req.user._id;  // Get the user ID from the token (already set in the authMiddleware)
 
   try {
-    const user = await User.findById(id).select("-password -refreshToken -passwordResetToken -passwordResetExpires");
+    // Fetch user by userId from the decoded token
+    const user = await User.findById(userId).select("-password -refreshToken -passwordResetToken -passwordResetExpires");
 
     if (!user) {
       return res.status(404).json({ message: "User not found" });
