@@ -12,6 +12,7 @@ const couponRouter = require("./routes/couponRoute");
 const chatRouter = require("./routes/ChatRoute");
 const sectionRoutes = require("./routes/sectionRoutes");
 const questionRoutes = require("./routes/questionRoutes");
+const bookRoutes = require("./routes/bookRoutes");
 const policyRoutes = require("./routes/policyRoutes");
 const orderRouter = require("./routes/orderRoute");
 const { notFound, errorHandler } = require("./middlewares/errorHandler");
@@ -47,6 +48,7 @@ app.use("/api/coupon", couponRouter);
 app.use("/api/chat", chatRouter);
 app.use("/api/section", sectionRoutes);
 app.use("/api/question", questionRoutes);
+app.use("/api/book", bookRoutes);
 app.use("/api/policy", policyRoutes);
 app.use("/api/order", orderRouter);
 
