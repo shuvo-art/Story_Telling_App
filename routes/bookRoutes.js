@@ -10,12 +10,20 @@ const upload = multer({ storage: cloudinaryStorage });
 // Create a new book
 router.post("/create", authMiddleware, upload.single("coverImage"), async (req, res) => {
   try {
-    const { title } = req.body;
-    const coverImage = req.file ? req.file.path : "";
+    if (!req.body.title) {
+      return res.status(400).json({ error: "Title is required" });
+    }
+
+    if (!req.file) {
+      return res.status(400).json({ error: "Cover image is required" });
+    }
+
+    const coverImage = req.file.path;
+    console.log("Book Creation: ", { title: req.body.title, coverImage });
 
     const book = await Book.create({
       userId: req.user._id,
-      title,
+      title: req.body.title,
       coverImage,
       percentage: 0,
       status: "draft",
@@ -23,7 +31,8 @@ router.post("/create", authMiddleware, upload.single("coverImage"), async (req, 
 
     res.status(201).json({ message: "Book created successfully", book });
   } catch (error) {
-    res.status(500).json({ error: "Error creating book" });
+    console.error("Error Creating Book: ", error);
+    res.status(500).json({ error: "Error creating book", details: error.message });
   }
 });
 
