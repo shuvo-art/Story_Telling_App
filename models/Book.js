@@ -11,6 +11,7 @@ const bookSchema = new mongoose.Schema({
   coverImage: { type: String },
   finalizedAt: { type: Date },
   status: { type: String, enum: ["draft", "final"], default: "draft" },
+  percentage: { type: Number, default: 0 },
 }, { timestamps: true });
 
 module.exports = mongoose.model("Book", bookSchema);

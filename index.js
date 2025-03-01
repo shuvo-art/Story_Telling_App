@@ -39,6 +39,7 @@ app.use("/uploads", express.static(path.join(__dirname, "public/images/profiles"
 app.post('/api/subscription/webhook', bodyParser.raw({ type: 'application/json' }), handleStripeWebhook);
 
 app.use(express.json()); // Apply express.json() globally to other routes
+app.use(express.urlencoded({ extended: true }));
 
 // Route middlewares
 app.use("/api/user", authRouter);

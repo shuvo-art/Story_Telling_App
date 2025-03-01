@@ -10,7 +10,13 @@ const upload = multer({ storage: cloudinaryStorage });
 // Create a new book
 router.post("/create", authMiddleware, upload.single("coverImage"), async (req, res) => {
   try {
-    if (!req.body.title) {
+    console.log("Received Body:", req.body);
+    console.log("Received File:", req.file);
+
+    // Trim title to remove extra spaces
+    const title = req.body.title ? req.body.title.trim() : "";
+
+    if (!title) {
       return res.status(400).json({ error: "Title is required" });
     }
 
@@ -19,11 +25,10 @@ router.post("/create", authMiddleware, upload.single("coverImage"), async (req, 
     }
 
     const coverImage = req.file.path;
-    console.log("Book Creation: ", { title: req.body.title, coverImage });
 
     const book = await Book.create({
       userId: req.user._id,
-      title: req.body.title,
+      title,
       coverImage,
       percentage: 0,
       status: "draft",
