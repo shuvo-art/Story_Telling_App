@@ -1,21 +1,35 @@
-const Question = require("../models/Question");
+const Book = require("../models/Book");
 const Section = require("../models/Section");
+const Question = require("../models/Question");
 const asyncHandler = require("express-async-handler");
 
-// Add new questions (support for multiple questions)
 const addQuestion = asyncHandler(async (req, res) => {
-  const { sectionId, questions } = req.body;
+  const { bookId, episodeIndex, questions } = req.body;
 
   if (!Array.isArray(questions) || questions.length === 0) {
     return res.status(400).json({ message: "Questions must be an array and not empty." });
   }
 
-  const section = await Section.findById(sectionId);
-  if (!section) {
-    return res.status(404).json({ message: "Section not found." });
+  const book = await Book.findOne({ _id: bookId });
+  if (!book) {
+    return res.status(404).json({ message: "Book not found." });
   }
 
-  const questionDocs = questions.map((text) => ({ sectionId, text }));
+  if (!book.episodes || episodeIndex < 0 || episodeIndex >= book.episodes.length) {
+    return res.status(404).json({ message: "Episode not found." });
+  }
+
+  const episode = book.episodes[episodeIndex];
+  let section = await Section.findOne({ _id: episode._id });
+  if (!section) {
+    section = await Section.create({
+      _id: episode._id,
+      name: episode.title,
+      numberOfQuestions: 0,
+    });
+  }
+
+  const questionDocs = questions.map((text) => ({ sectionId: section._id, text }));
   const savedQuestions = await Question.insertMany(questionDocs);
 
   section.numberOfQuestions += savedQuestions.length;
@@ -24,7 +38,6 @@ const addQuestion = asyncHandler(async (req, res) => {
   res.status(201).json({ message: "Questions added successfully", savedQuestions });
 });
 
-// Edit a single question by ID
 const editQuestion = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const { text } = req.body;
@@ -41,8 +54,6 @@ const editQuestion = asyncHandler(async (req, res) => {
   res.json({ message: "Question updated successfully", question });
 });
 
-
-// Delete a question
 const deleteQuestion = asyncHandler(async (req, res) => {
   const { id } = req.params;
 
@@ -60,10 +71,8 @@ const deleteQuestion = asyncHandler(async (req, res) => {
   res.json({ message: "Question deleted successfully", question });
 });
 
-// Get questions by section
 const getQuestionsBySection = asyncHandler(async (req, res) => {
   const { sectionId } = req.params;
-
   const questions = await Question.find({ sectionId });
   res.json(questions);
 });

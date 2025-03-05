@@ -27,7 +27,7 @@ const adminLogin = asyncHandler(async (req, res) => {
   });
 
   if (isMatched) {
-    const token = jwt.sign({ id: admin._id, role: admin.role }, process.env.JWT_SECRET, { expiresIn: "1d" });
+    const token = jwt.sign({ id: admin._id, role: admin.role }, process.env.JWT_SECRET, { expiresIn: "7d" });
     console.log("Admin Login: Token generated successfully for admin:", admin.email);
     return res.json({
       _id: admin._id,
