@@ -4,34 +4,23 @@ const Question = require("../models/Question");
 const asyncHandler = require("express-async-handler");
 
 const addQuestion = asyncHandler(async (req, res) => {
-  const { bookId, episodeIndex, questions } = req.body;
+  const { sectionId, questions } = req.body;
 
   if (!Array.isArray(questions) || questions.length === 0) {
     return res.status(400).json({ message: "Questions must be an array and not empty." });
   }
 
-  const book = await Book.findOne({ _id: bookId });
-  if (!book) {
-    return res.status(404).json({ message: "Book not found." });
-  }
-
-  if (!book.episodes || episodeIndex < 0 || episodeIndex >= book.episodes.length) {
-    return res.status(404).json({ message: "Episode not found." });
-  }
-
-  const episode = book.episodes[episodeIndex];
-  let section = await Section.findOne({ _id: episode._id });
+  // Find the section by sectionId
+  let section = await Section.findById(sectionId);
   if (!section) {
-    section = await Section.create({
-      _id: episode._id,
-      name: episode.title,
-      numberOfQuestions: 0,
-    });
+    return res.status(404).json({ message: "Section not found." });
   }
 
+  // Create question documents with the provided sectionId
   const questionDocs = questions.map((text) => ({ sectionId: section._id, text }));
   const savedQuestions = await Question.insertMany(questionDocs);
 
+  // Update the section's numberOfQuestions
   section.numberOfQuestions += savedQuestions.length;
   await section.save();
 

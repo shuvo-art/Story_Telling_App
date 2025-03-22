@@ -3,16 +3,27 @@ const Question = require("../models/Question");
 const asyncHandler = require("express-async-handler");
 
 const addSection = asyncHandler(async (req, res) => {
-  const { name, numberOfQuestions } = req.body;
-  const section = await Section.create({ name, numberOfQuestions });
+  const { name, numberOfQuestions, episodeIndex } = req.body;
+
+  // Validate only required fields (name and numberOfQuestions are handled by schema)
+  // episodeIndex is optional, so no validation needed unless you want specific rules (e.g., non-negative)
+  if (episodeIndex !== undefined && episodeIndex < 0) {
+    return res.status(400).json({ message: "episodeIndex must be a non-negative number if provided." });
+  }
+
+  const section = await Section.create({ name, numberOfQuestions, episodeIndex });
   res.status(201).json({ message: "Section added successfully", section });
 });
 
 const editSection = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const { name, numberOfQuestions, published } = req.body;
+  const { name, numberOfQuestions, published, episodeIndex } = req.body;
 
-  const section = await Section.findByIdAndUpdate(id, { name, numberOfQuestions, published }, { new: true });
+  const section = await Section.findByIdAndUpdate(
+    id,
+    { name, numberOfQuestions, published, episodeIndex }, // episodeIndex remains optional
+    { new: true }
+  );
   if (!section) {
     return res.status(404).json({ message: "Section not found" });
   }
