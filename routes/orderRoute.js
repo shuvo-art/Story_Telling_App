@@ -1,88 +1,107 @@
+// orderRoute.js
 const express = require("express");
 const router = express.Router();
 const Order = require("../models/order");
 const Notification = require("../models/notificationModel"); 
 const { authMiddleware, isAdmin } = require("../middlewares/authMiddleware");
+const { pdfUpload } = require("../middlewares/uploadImages"); // Import the new PDF upload middleware
 const Stripe = require("stripe");
 const stripe = new Stripe(process.env.STRIPE_KEY);
 
 // Create Order and Process Payment
-router.post("/create-order", authMiddleware, async (req, res) => {
-  const { bookTitle, quantity, price } = req.body;
-  const total = quantity * price;
+router.post(
+  "/create-order",
+  authMiddleware,
+  pdfUpload.single("pdf"), // Handle PDF upload via multipart/form-data
+  async (req, res) => {
+    const { bookTitle, quantity, price, shippingAddress } = req.body;
 
-  try {
-    // Create the order in the database
-    const order = new Order({
-      userId: req.user._id,
-      bookTitle,
-      quantity,
-      price,
-      total,
-      status: "pending",
-    });
-    await order.save();
+    // Parse shippingAddress if it's sent as a JSON string
+    let parsedShippingAddress;
+    try {
+      parsedShippingAddress = typeof shippingAddress === "string" ? JSON.parse(shippingAddress) : shippingAddress;
+    } catch (error) {
+      return res.status(400).json({ message: "Invalid shipping address format" });
+    }
 
-    // Create a notification for the admin about the new order
-    const adminNotification = new Notification({
-      message: `${req.user.firstname} ${req.user.lastname} ordered ${bookTitle} (${quantity} copies)`,
-      userId: req.user._id,
-      orderId: order._id,
-    });
+    const total = quantity * price;
 
-    // Save the notification
-    await adminNotification.save();
+    try {
+      // Handle PDF upload
+      let pdfLink = "";
+      if (req.file) {
+        pdfLink = req.file.path; // Cloudinary URL for the uploaded PDF
+      }
 
-    // You can add code here to notify admins through email, websockets, etc.
+      // Create the order in the database
+      const order = new Order({
+        userId: req.user._id,
+        bookTitle,
+        quantity,
+        price,
+        total,
+        status: "pending",
+        shippingAddress: parsedShippingAddress, // Save shipping address
+        pdfLink, // Save PDF link if uploaded
+      });
+      await order.save();
 
-    // Create a Stripe session for the payment
-    const session = await stripe.checkout.sessions.create({
-      payment_method_types: ["card"],
-      line_items: [
-        {
-          price_data: {
-            currency: "usd",
-            product_data: { name: bookTitle },
-            unit_amount: price * 100, // Stripe requires the amount in cents
+      // Create a notification for the admin about the new order
+      const adminNotification = new Notification({
+        message: `${req.user.firstname} ${req.user.lastname} ordered ${bookTitle} (${quantity} copies)`,
+        userId: req.user._id,
+        orderId: order._id,
+      });
+
+      // Save the notification
+      await adminNotification.save();
+
+      // Create a Stripe session for the payment
+      const session = await stripe.checkout.sessions.create({
+        payment_method_types: ["card"],
+        line_items: [
+          {
+            price_data: {
+              currency: "usd",
+              product_data: { name: bookTitle },
+              unit_amount: price * 100, // Stripe requires the amount in cents
+            },
+            quantity,
           },
-          quantity,
-        },
-      ],
-      shipping_address_collection: {
-        allowed_countries: ["US", "CA"],
-      },
-      shipping_options: [
-        {
-          shipping_rate_data: {
-            type: "fixed_amount",
-            fixed_amount: { amount: 0, currency: "usd" },
-            display_name: "Free shipping",
+        ],
+        shipping_options: [
+          {
+            shipping_rate_data: {
+              type: "fixed_amount",
+              fixed_amount: { amount: 0, currency: "usd" },
+              display_name: "Free shipping",
+            },
           },
-        },
-        {
-          shipping_rate_data: {
-            type: "fixed_amount",
-            fixed_amount: { amount: 1500, currency: "usd" },
-            display_name: "Next day air",
+          {
+            shipping_rate_data: {
+              type: "fixed_amount",
+              fixed_amount: { amount: 1500, currency: "usd" },
+              display_name: "Next day air",
+            },
           },
+        ],
+        phone_number_collection: {
+          enabled: true,
         },
-      ],
-      phone_number_collection: {
-        enabled: true,
-      },
-      metadata: {
-        orderId: order._id.toString(),
-      },
-      mode: "payment",
-      success_url: `${process.env.CLIENT_URL}/order-success/${order._id}`,
-      cancel_url: `${process.env.CLIENT_URL}/order-cancel/${order._id}`,
-    });
+        metadata: {
+          orderId: order._id.toString(),
+        },
+        mode: "payment",
+        success_url: `${process.env.CLIENT_URL}/order-success/${order._id}`,
+        cancel_url: `${process.env.CLIENT_URL}/order-cancel/${order._id}`,
+      });
 
-    res.status(200).json({ url: session.url });
-  } catch (error) {
-    res.status(500).json({ message: "Error creating order", error });
+      res.status(200).json({ url: session.url });
+    } catch (error) {
+      res.status(500).json({ message: "Error creating order", error });
+    }
   }
-});
+);
 
 // Get All Orders (Admin)
 router.get("/all-orders", authMiddleware, isAdmin, async (req, res) => {
@@ -122,6 +141,5 @@ router.put("/update-status/:id", authMiddleware, isAdmin, async (req, res) => {
     res.status(500).json({ message: "Error updating order status", error });
   }
 });
-
 
 module.exports = router;

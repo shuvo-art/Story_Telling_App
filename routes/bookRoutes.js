@@ -422,4 +422,56 @@ router.post("/:bookId/episode/:episodeIndex/generate-story", authMiddleware, asy
   }
 });
 
+// Update a specific conversation (e.g., generated story) by conversation ID
+router.put("/:bookId/episode/:episodeId/conversation/:conversationId", authMiddleware, async (req, res) => {
+  try {
+    const { bookId, episodeId, conversationId } = req.params;
+    const { botResponse } = req.body;
+
+    // Validate input
+    if (!botResponse || typeof botResponse !== "string") {
+      return res.status(400).json({ error: "botResponse is required and must be a string" });
+    }
+
+    // Find the book
+    const book = await Book.findOne({ _id: bookId, userId: req.user._id });
+    if (!book) {
+      return res.status(404).json({ error: "Book not found" });
+    }
+
+    // Find the episode by episodeId
+    const episode = book.episodes.find(ep => ep._id.toString() === episodeId);
+    if (!episode) {
+      return res.status(404).json({ error: "Episode not found" });
+    }
+
+    // Find the conversation by conversationId
+    const conversation = episode.conversations.find(conv => conv._id.toString() === conversationId);
+    if (!conversation) {
+      return res.status(404).json({ error: "Conversation not found" });
+    }
+
+    // Update the botResponse
+    conversation.botResponse = botResponse;
+
+    // Save the updated book
+    await book.save();
+
+    res.json({
+      message: "Conversation updated successfully",
+      updatedConversation: {
+        question: conversation.question,
+        userAnswer: conversation.userAnswer,
+        botResponse: conversation.botResponse,
+        isSubQuestion: conversation.isSubQuestion,
+        storyGenerated: conversation.storyGenerated,
+        _id: conversation._id
+      }
+    });
+  } catch (error) {
+    console.error("Error updating conversation:", error);
+    res.status(500).json({ error: "Error updating conversation", details: error.message });
+  }
+});
+
 module.exports = router;

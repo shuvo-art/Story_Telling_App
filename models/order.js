@@ -1,3 +1,4 @@
+// order.js
 const mongoose = require("mongoose");
 
 const orderSchema = new mongoose.Schema(
@@ -25,6 +26,7 @@ const orderSchema = new mongoose.Schema(
     email: { type: String }, // Customer email, populated from Stripe
     phone: { type: String }, // Customer phone, populated from Stripe
     name: { type: String }, // Customer name, populated from Stripe
+    pdfLink: { type: String }, // New field to store the Cloudinary PDF link
   },
   { timestamps: true }
 );
