@@ -1,10 +1,18 @@
 // uploadImages.js
 const multer = require('multer');
-const { cloudinaryStorage } = require('../config/cloudinary');
+const { CloudinaryStorage } = require('multer-storage-cloudinary'); // Import CloudinaryStorage directly
+const { cloudinary } = require('../config/cloudinary'); // Import cloudinary instance
 
 // Existing configuration for profile picture uploads (images only)
 const profileUpload = multer({
-  storage: cloudinaryStorage,
+  storage: new CloudinaryStorage({
+    cloudinary: cloudinary,
+    params: {
+      folder: 'profiles', // Store in 'profiles' folder in Cloudinary
+      allowed_formats: ['jpg', 'jpeg', 'png', 'webp', 'gif'], // Supported formats
+      transformation: [{ width: 200, height: 200, crop: 'fill' }], // Resize if needed
+    },
+  }),
   limits: { fileSize: 2000000 }, // Limit file size to 2MB
   fileFilter: (req, file, cb) => {
     if (file.mimetype.startsWith('image')) {
@@ -18,9 +26,9 @@ const profileUpload = multer({
 // New configuration for PDF uploads
 const pdfUpload = multer({
   storage: new CloudinaryStorage({
-    cloudinary: require('../config/cloudinary').cloudinary,
+    cloudinary: cloudinary,
     params: {
-      folder: 'order_pdfs', // Store PDFs in a separate folder in Cloudinary
+      folder: 'order_pdfs', // Store PDFs in 'order_pdfs' folder
       allowed_formats: ['pdf'], // Only allow PDFs
       resource_type: 'raw', // Use 'raw' for non-image files like PDFs
     },
