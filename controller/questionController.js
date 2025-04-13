@@ -10,17 +10,21 @@ const addQuestion = asyncHandler(async (req, res) => {
     return res.status(400).json({ message: "Questions must be an array and not empty." });
   }
 
-  // Find the section by sectionId
   let section = await Section.findById(sectionId);
   if (!section) {
     return res.status(404).json({ message: "Section not found." });
   }
 
-  // Create question documents with the provided sectionId
+  // Validate each question's text object
+  for (const q of questions) {
+    if (!q || !q.en || !q.es) {
+      return res.status(400).json({ message: "Each question must include both English (en) and Spanish (es) text." });
+    }
+  }
+
   const questionDocs = questions.map((text) => ({ sectionId: section._id, text }));
   const savedQuestions = await Question.insertMany(questionDocs);
 
-  // Update the section's numberOfQuestions
   section.numberOfQuestions += savedQuestions.length;
   await section.save();
 
@@ -31,13 +35,13 @@ const editQuestion = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const { text } = req.body;
 
-  if (!text) {
-    return res.status(400).json({ message: "Question text is required." });
+  if (!text || !text.en || !text.es) {
+    return res.status(400).json({ message: "Question text must include both English (en) and Spanish (es) versions." });
   }
 
   const question = await Question.findByIdAndUpdate(id, { text }, { new: true });
   if (!question) {
-    return res.status(404).json({ message: "Question not found." });
+    return res.status(404).json({ message: "Question not found" });
   }
 
   res.json({ message: "Question updated successfully", question });

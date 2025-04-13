@@ -21,7 +21,10 @@ router.post("/create", authMiddleware, upload.single("coverImage"), async (req, 
     const coverImage = req.file ? req.file.path : "";
     const sections = await Section.find(); // Fetch all sections
     const episodes = sections.map((section) => ({
-      title: section.name,
+      title: {
+        en: section.name.en,
+        es: section.name.es,
+      },
       coverImage: "",
       percentage: 0,
       conversations: [],
@@ -42,6 +45,7 @@ router.post("/create", authMiddleware, upload.single("coverImage"), async (req, 
     res.status(500).json({ error: "Error creating book", details: error.message });
   }
 });
+
 
 // Get all books for a specific user
 router.get("/user-books", authMiddleware, async (req, res) => {
@@ -275,7 +279,11 @@ router.get("/:bookId/episode/:episodeIndex/start-conversation", authMiddleware, 
     }
 
     const episode = book.episodes[epIndex];
-    const section = await Section.findOne({ name: episode.title });
+    // Find section by matching title object
+    const section = await Section.findOne({
+      "name.en": episode.title.en,
+      "name.es": episode.title.es,
+    });
     if (!section) {
       return res.status(404).json({ error: "Corresponding section not found" });
     }
@@ -357,7 +365,11 @@ router.get("/:bookId/episode/:episodeIndex/next-question", authMiddleware, async
     }
 
     const episode = book.episodes[episodeIndex];
-    const section = await Section.findOne({ name: episode.title });
+    // Find section by matching title object
+    const section = await Section.findOne({
+      "name.en": episode.title.en,
+      "name.es": episode.title.es,
+    });
     if (!section) {
       return res.status(404).json({ error: "Corresponding section not found" });
     }

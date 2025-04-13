@@ -5,8 +5,11 @@ const asyncHandler = require("express-async-handler");
 const addSection = asyncHandler(async (req, res) => {
   const { name, numberOfQuestions, episodeIndex } = req.body;
 
-  // Validate only required fields (name and numberOfQuestions are handled by schema)
-  // episodeIndex is optional, so no validation needed unless you want specific rules (e.g., non-negative)
+  // Validate the name object
+  if (!name || !name.en || !name.es) {
+    return res.status(400).json({ message: "Name must include both English (en) and Spanish (es) versions." });
+  }
+
   if (episodeIndex !== undefined && episodeIndex < 0) {
     return res.status(400).json({ message: "episodeIndex must be a non-negative number if provided." });
   }
@@ -19,9 +22,14 @@ const editSection = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const { name, numberOfQuestions, published, episodeIndex } = req.body;
 
+  // Validate the name object if provided
+  if (name && (!name.en || !name.es)) {
+    return res.status(400).json({ message: "Name must include both English (en) and Spanish (es) versions." });
+  }
+
   const section = await Section.findByIdAndUpdate(
     id,
-    { name, numberOfQuestions, published, episodeIndex }, // episodeIndex remains optional
+    { name, numberOfQuestions, published, episodeIndex },
     { new: true }
   );
   if (!section) {

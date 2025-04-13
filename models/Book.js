@@ -2,17 +2,20 @@ const mongoose = require("mongoose");
 
 const conversationSchema = new mongoose.Schema({
   question: { type: String, required: true },
-  userAnswer: { type: String, required: false, default: ""},
+  userAnswer: { type: String, required: false, default: "" },
   botResponse: { type: String },
   isSubQuestion: { type: Boolean, default: false },
   storyGenerated: { type: Boolean, default: false },
 });
 
 const episodeSchema = new mongoose.Schema({
-  title: { type: String, required: true }, // Title will match section name
+  title: {
+    en: { type: String, required: true }, // English title
+    es: { type: String, required: true }, // Spanish title
+  },
   coverImage: { type: String, default: "" },
   percentage: { type: Number, default: 0 },
-  conversations: [conversationSchema],
+  conversations: [ conversationSchema ],
 });
 
 const bookSchema = new mongoose.Schema(
