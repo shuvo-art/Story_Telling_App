@@ -113,23 +113,96 @@ const editUserProfile = asyncHandler(async (req, res) => {
 
 // Forgot password - send verification code
 const forgotPassword = asyncHandler(async (req, res) => {
+  // Log the incoming request body to ensure we're receiving the email
+  console.log("Forgot Password Request Received:", {
+    body: req.body,
+    email: req.body.email,
+    timestamp: new Date().toISOString(),
+  });
+
   const { email } = req.body;
+
+  // Validate email presence
+  if (!email) {
+    console.log("Validation Error: Email is missing in the request body");
+    return res.status(400).json({ message: "Email is required" });
+  }
+
+  // Log the email being searched for
+  console.log("Searching for user with email:", email);
+
+  // Find the user in the database
   const user = await User.findOne({ email });
-  
-  if (!user) return res.status(404).json({ message: "User not found" });
 
+  // Log the result of the user search
+  if (!user) {
+    console.log("User not found for email:", email);
+    return res.status(404).json({ message: "User not found" });
+  }
+
+  console.log("User found:", {
+    userId: user._id.toString(),
+    email: user.email,
+    role: user.role,
+    isBlocked: user.isBlocked,
+  });
+
+  // Check if the user is blocked (optional, depending on your app logic)
+  if (user.isBlocked) {
+    console.log("User is blocked:", { userId: user._id.toString(), email: user.email });
+    return res.status(403).json({ message: "User account is blocked" });
+  }
+
+  // Generate verification code
   const verificationCode = Math.floor(1000 + Math.random() * 9000).toString();
-  user.passwordResetToken = crypto.createHash("sha256").update(verificationCode).digest("hex");
-  user.passwordResetExpires = Date.now() + 10 * 60 * 1000;
-  await user.save();
+  console.log("Generated Verification Code:", verificationCode);
 
+  // Hash the verification code and set expiration
+  user.passwordResetToken = crypto.createHash("sha256").update(verificationCode).digest("hex");
+  user.passwordResetExpires = Date.now() + 10 * 60 * 1000; // 10 minutes
+  console.log("Verification Details:", {
+    passwordResetToken: user.passwordResetToken,
+    passwordResetExpires: new Date(user.passwordResetExpires).toISOString(),
+  });
+
+  // Save the user with the new reset token and expiration
+  try {
+    await user.save();
+    console.log("User updated successfully with reset token:", {
+      userId: user._id.toString(),
+      email: user.email,
+    });
+  } catch (error) {
+    console.error("Error saving user with reset token:", {
+      error: error.message,
+      stack: error.stack,
+    });
+    return res.status(500).json({ message: "Failed to save user data. Please try again." });
+  }
+
+  // Prepare email data
   const emailData = {
     to: email,
     subject: "Password Reset Code",
     text: `Your verification code is ${verificationCode}`,
   };
-  await sendEmail(emailData);
-  res.json({ message: "Verification code sent to email" });
+  console.log("Email Data Prepared:", emailData);
+
+  // Attempt to send the email
+  try {
+    console.log("Attempting to send email to:", email);
+    await sendEmail(emailData);
+    console.log("Email sent successfully to:", email);
+    res.json({ message: "Verification code sent to email" });
+  } catch (error) {
+    console.error("Failed to send verification email:", {
+      error: error.message,
+      stack: error.stack,
+      email: email,
+      verificationCode: verificationCode,
+    });
+    res.status(500).json({ message: "Failed to send verification email. Please try again later." });
+  }
 });
 
 
